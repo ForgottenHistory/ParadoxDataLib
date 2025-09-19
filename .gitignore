@@ -389,3 +389,4 @@ FodyWeavers.xsd
 # Custom game files directory (keeping as excluded)
 /EU IV Files
 .claude/settings.local.json
+PerformanceTest/test_results.txt
