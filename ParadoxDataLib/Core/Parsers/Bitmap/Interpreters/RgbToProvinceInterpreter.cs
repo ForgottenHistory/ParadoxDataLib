@@ -62,17 +62,35 @@ namespace ParadoxDataLib.Core.Parsers.Bitmap.Interpreters
             IEnumerable<Csv.DataStructures.ProvinceDefinition> provinceDefinitions,
             int defaultProvinceId = 0)
         {
+            return FromProvinceDefinitions(provinceDefinitions, defaultProvinceId, out _);
+        }
+
+        /// <summary>
+        /// Creates a new RGB to province interpreter from province definition data with duplicate warnings
+        /// </summary>
+        /// <param name="provinceDefinitions">Province definitions from CSV parser</param>
+        /// <param name="defaultProvinceId">Default province ID for unmapped colors</param>
+        /// <param name="duplicateWarnings">Output list of duplicate RGB warnings</param>
+        /// <returns>RGB to province interpreter using last-wins approach for duplicates</returns>
+        public static RgbToProvinceInterpreter FromProvinceDefinitions(
+            IEnumerable<Csv.DataStructures.ProvinceDefinition> provinceDefinitions,
+            int defaultProvinceId,
+            out List<string> duplicateWarnings)
+        {
             var rgbMap = new Dictionary<int, int>();
+            duplicateWarnings = new List<string>();
 
             foreach (var definition in provinceDefinitions)
             {
                 var rgbValue = definition.RgbValue;
                 if (rgbMap.ContainsKey(rgbValue))
                 {
-                    throw new InvalidOperationException(
-                        $"Duplicate RGB value {definition.RgbString} found for provinces {rgbMap[rgbValue]} and {definition.ProvinceId}");
+                    // Last wins approach - overwrite the existing mapping and warn
+                    var previousProvinceId = rgbMap[rgbValue];
+                    duplicateWarnings.Add(
+                        $"Duplicate RGB {definition.RgbString}: Province {previousProvinceId} overwritten by Province {definition.ProvinceId}");
                 }
-                rgbMap[rgbValue] = definition.ProvinceId;
+                rgbMap[rgbValue] = definition.ProvinceId; // Always set - implements "last wins"
             }
 
             return new RgbToProvinceInterpreter(rgbMap, defaultProvinceId);

@@ -123,39 +123,39 @@ is_city = {(i % 3 == 0 ? "yes" : "no")}
         [Benchmark]
         public ParadoxNode ParseSimpleProvince()
         {
-            return _parser.ParseContent(_sampleProvinceContent);
+            return _parser.Parse(_sampleProvinceContent);
         }
 
         [Benchmark]
         public ParadoxNode ParseSimpleCountry()
         {
-            return _parser.ParseContent(_sampleCountryContent);
+            return _parser.Parse(_sampleCountryContent);
         }
 
         [Benchmark]
         public ParadoxNode ParseComplexProvince()
         {
-            return _parser.ParseContent(_complexProvinceContent);
+            return _parser.Parse(_complexProvinceContent);
         }
 
         [Benchmark]
         public ProvinceData ExtractSimpleProvinceData()
         {
-            var node = _parser.ParseContent(_sampleProvinceContent);
+            var node = _parser.Parse(_sampleProvinceContent);
             return _provinceExtractor.Extract(node);
         }
 
         [Benchmark]
         public CountryData ExtractSimpleCountryData()
         {
-            var node = _parser.ParseContent(_sampleCountryContent);
+            var node = _parser.Parse(_sampleCountryContent);
             return _countryExtractor.Extract(node);
         }
 
         [Benchmark]
         public ProvinceData ExtractComplexProvinceData()
         {
-            var node = _parser.ParseContent(_complexProvinceContent);
+            var node = _parser.Parse(_complexProvinceContent);
             return _provinceExtractor.Extract(node);
         }
 
@@ -166,7 +166,7 @@ is_city = {(i % 3 == 0 ? "yes" : "no")}
             for (int i = 0; i < _multipleProvinceContents.Count; i++)
             {
                 var extractor = new ProvinceExtractor(i + 1, $"Province{i + 1}");
-                var node = _parser.ParseContent(_multipleProvinceContents[i]);
+                var node = _parser.Parse(_multipleProvinceContents[i]);
                 results.Add(extractor.Extract(node));
             }
             return results;
@@ -185,7 +185,7 @@ is_city = {(i % 3 == 0 ? "yes" : "no")}
             var results = new List<ParadoxNode>();
             foreach (var content in _multipleProvinceContents.Take(100))
             {
-                results.Add(_parser.ParseContent(content));
+                results.Add(_parser.Parse(content));
             }
             return results;
         }
@@ -193,7 +193,7 @@ is_city = {(i % 3 == 0 ? "yes" : "no")}
         [Benchmark]
         public int CountTokensInComplexFile()
         {
-            var node = _parser.ParseContent(_complexProvinceContent);
+            var node = _parser.Parse(_complexProvinceContent);
             return CountNodes(node);
         }
 
@@ -222,7 +222,7 @@ is_city = {(i % 3 == 0 ? "yes" : "no")}
             for (int i = 0; i < count && i < _multipleProvinceContents.Count; i++)
             {
                 var extractor = new ProvinceExtractor(i + 1, $"Province{i + 1}");
-                var node = _parser.ParseContent(_multipleProvinceContents[i]);
+                var node = _parser.Parse(_multipleProvinceContents[i]);
                 results.Add(extractor.Extract(node));
             }
             return results;
@@ -235,7 +235,7 @@ is_city = {(i % 3 == 0 ? "yes" : "no")}
             var results = new List<ParadoxNode>();
             foreach (var content in _multipleProvinceContents.Take(100))
             {
-                results.Add(_parser.ParseContent(content));
+                results.Add(_parser.Parse(content));
             }
             return results;
         }
@@ -247,7 +247,7 @@ is_city = {(i % 3 == 0 ? "yes" : "no")}
             for (int i = 0; i < 100 && i < _multipleProvinceContents.Count; i++)
             {
                 var extractor = new ProvinceExtractor(i + 1, $"Province{i + 1}");
-                var node = _parser.ParseContent(_multipleProvinceContents[i]);
+                var node = _parser.Parse(_multipleProvinceContents[i]);
                 results.Add(extractor.Extract(node));
             }
             return results;
@@ -264,7 +264,7 @@ culture = français
 religion = catholique
 description = ""Une province très importante avec des caractères spéciaux""
 ";
-            return _parser.ParseContent(unicodeContent);
+            return _parser.Parse(unicodeContent);
         }
 
         [Benchmark]
@@ -276,7 +276,7 @@ description = """ + new string('A', 1000) + @"""
 long_name = """ + new string('B', 500) + @"""
 tooltip = """ + new string('C', 750) + @"""
 ";
-            return _parser.ParseContent(largeStringContent);
+            return _parser.Parse(largeStringContent);
         }
     }
 
@@ -330,13 +330,13 @@ mercenary_company = {
         [Benchmark]
         public ParadoxNode ParseNestedStructure()
         {
-            return _parser.ParseContent(_complexContent);
+            return _parser.Parse(_complexContent);
         }
 
         [Benchmark]
         public int CountNestedLevels()
         {
-            var node = _parser.ParseContent(_complexContent);
+            var node = _parser.Parse(_complexContent);
             return GetMaxDepth(node, 0);
         }
 

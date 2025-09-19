@@ -16,6 +16,10 @@ namespace ParadoxDataLib.Core.Parsers.Bitmap
     {
         private MemoryMappedFile _mmf;
         private MemoryMappedViewAccessor _accessor;
+        private FileStream _fileStream;
+        private byte[] _fileData;
+        private bool _useMemoryMappedFile;
+        private const int BUFFER_SIZE = 64 * 1024; // 64KB buffer for streaming
         private string _filePath;
         private BitmapHeader _header;
         private Pixel[] _colorPalette;
@@ -29,7 +33,7 @@ namespace ParadoxDataLib.Core.Parsers.Bitmap
         /// <summary>
         /// Whether the bitmap file has been opened for reading
         /// </summary>
-        public bool IsOpen => _mmf != null && !_disposed;
+        public bool IsOpen => (_mmf != null || _fileStream != null) && !_disposed;
 
         /// <summary>
         /// Color palette for indexed color bitmaps (null for direct color bitmaps)
@@ -59,9 +63,26 @@ namespace ParadoxDataLib.Core.Parsers.Bitmap
             {
                 _filePath = filePath;
 
-                // Open memory-mapped file for efficient access
-                _mmf = MemoryMappedFile.CreateFromFile(filePath, FileMode.Open, "bmp", 0, MemoryMappedFileAccess.Read);
-                _accessor = _mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
+                // Try memory-mapped file first, fall back to regular file I/O
+                try
+                {
+                    _mmf = MemoryMappedFile.CreateFromFile(filePath, FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
+                    _accessor = _mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
+                    _useMemoryMappedFile = true;
+                }
+                catch (Exception mmfEx) when (mmfEx.Message.Contains("Named maps are not supported") ||
+                                               mmfEx is NotSupportedException ||
+                                               mmfEx is PlatformNotSupportedException)
+                {
+                    // Fall back to regular file I/O with minimal initial loading
+                    _fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    // Only load header data initially (first 1KB should be enough for any BMP header)
+                    var headerSize = Math.Min(1024, (int)_fileStream.Length);
+                    _fileData = new byte[headerSize];
+                    _fileStream.Read(_fileData, 0, headerSize);
+                    _fileStream.Position = 0; // Reset position for later streaming reads
+                    _useMemoryMappedFile = false;
+                }
 
                 // Read and validate header
                 _header = ReadHeader();
@@ -331,8 +352,13 @@ namespace ParadoxDataLib.Core.Parsers.Bitmap
             _mmf?.Dispose();
             _mmf = null;
 
+            _fileStream?.Dispose();
+            _fileStream = null;
+
+            _fileData = null;
             _colorPalette = null;
             _filePath = null;
+            _useMemoryMappedFile = false;
         }
 
         /// <summary>
@@ -353,26 +379,104 @@ namespace ParadoxDataLib.Core.Parsers.Bitmap
         private BitmapHeader ReadHeader()
         {
             // Read BITMAPFILEHEADER (14 bytes)
-            var signature = $"{(char)_accessor.ReadByte(0)}{(char)_accessor.ReadByte(1)}";
-            var fileSize = _accessor.ReadUInt32(2);
-            var pixelDataOffset = _accessor.ReadUInt32(10);
+            var signature = $"{(char)ReadByte(0)}{(char)ReadByte(1)}";
+            var fileSize = ReadUInt32(2);
+            var pixelDataOffset = ReadUInt32(10);
 
             // Read BITMAPINFOHEADER
-            var headerSize = _accessor.ReadUInt32(14);
-            var width = _accessor.ReadInt32(18);
-            var height = _accessor.ReadInt32(22);
-            var planes = _accessor.ReadUInt16(26);
-            var bitsPerPixel = _accessor.ReadUInt16(28);
-            var compression = (BitmapCompression)_accessor.ReadUInt32(30);
-            var imageSize = _accessor.ReadUInt32(34);
-            var xPixelsPerMeter = _accessor.ReadInt32(38);
-            var yPixelsPerMeter = _accessor.ReadInt32(42);
-            var colorsUsed = _accessor.ReadUInt32(46);
-            var importantColors = _accessor.ReadUInt32(50);
+            var headerSize = ReadUInt32(14);
+            var width = ReadInt32(18);
+            var height = ReadInt32(22);
+            var planes = ReadUInt16(26);
+            var bitsPerPixel = ReadUInt16(28);
+            var compression = (BitmapCompression)ReadUInt32(30);
+            var imageSize = ReadUInt32(34);
+            var xPixelsPerMeter = ReadInt32(38);
+            var yPixelsPerMeter = ReadInt32(42);
+            var colorsUsed = ReadUInt32(46);
+            var importantColors = ReadUInt32(50);
 
             return new BitmapHeader(signature, fileSize, pixelDataOffset, headerSize,
                                    width, height, planes, bitsPerPixel, compression, imageSize,
                                    xPixelsPerMeter, yPixelsPerMeter, colorsUsed, importantColors);
+        }
+
+        /// <summary>
+        /// Helper methods to read data from either memory-mapped file or file stream
+        /// </summary>
+        private byte ReadByte(long offset)
+        {
+            if (_useMemoryMappedFile)
+                return _accessor.ReadByte(offset);
+
+            // For file-based access, check if we need to read more data
+            if (offset >= _fileData.Length)
+                ReadDataAtOffset(offset, 1);
+
+            return _fileData[offset];
+        }
+
+        private ushort ReadUInt16(long offset)
+        {
+            if (_useMemoryMappedFile)
+                return _accessor.ReadUInt16(offset);
+
+            // For file-based access, check if we need to read more data
+            if (offset + 2 > _fileData.Length)
+                ReadDataAtOffset(offset, 2);
+
+            return BitConverter.ToUInt16(_fileData, (int)offset);
+        }
+
+        private uint ReadUInt32(long offset)
+        {
+            if (_useMemoryMappedFile)
+                return _accessor.ReadUInt32(offset);
+
+            // For file-based access, check if we need to read more data
+            if (offset + 4 > _fileData.Length)
+                ReadDataAtOffset(offset, 4);
+
+            return BitConverter.ToUInt32(_fileData, (int)offset);
+        }
+
+        private int ReadInt32(long offset)
+        {
+            if (_useMemoryMappedFile)
+                return _accessor.ReadInt32(offset);
+
+            // For file-based access, check if we need to read more data
+            if (offset + 4 > _fileData.Length)
+                ReadDataAtOffset(offset, 4);
+
+            return BitConverter.ToInt32(_fileData, (int)offset);
+        }
+
+        /// <summary>
+        /// Reads data from file stream when needed for file-based access
+        /// </summary>
+        private void ReadDataAtOffset(long offset, int minBytesNeeded)
+        {
+            if (_useMemoryMappedFile) return;
+
+            // Calculate how much data we need to read
+            var endOffset = offset + minBytesNeeded;
+            var newSize = Math.Max(endOffset, _fileData.Length * 2); // Grow buffer
+            newSize = Math.Min(newSize, _fileStream.Length); // Don't exceed file size
+
+            // Expand the buffer if needed
+            if (newSize > _fileData.Length)
+            {
+                var newBuffer = new byte[newSize];
+                Array.Copy(_fileData, newBuffer, _fileData.Length);
+
+                // Read additional data from file
+                _fileStream.Position = _fileData.Length;
+                var bytesToRead = (int)(newSize - _fileData.Length);
+                _fileStream.Read(newBuffer, _fileData.Length, bytesToRead);
+
+                _fileData = newBuffer;
+            }
         }
 
         /// <summary>
