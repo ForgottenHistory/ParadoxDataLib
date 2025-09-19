@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 using ParadoxDataLib.Core.DataModels;
 
 namespace ParadoxDataLib.Json
@@ -11,19 +10,19 @@ namespace ParadoxDataLib.Json
     public class ParadoxJsonConverter
     {
         private readonly JsonExportOptions _options;
-        private readonly JsonSerializerOptions _jsonOptions;
+        private readonly JsonSerializerSettings _jsonOptions;
 
-        public JsonSerializerOptions JsonOptions => _jsonOptions;
+        public JsonSerializerSettings JsonOptions => _jsonOptions;
 
         public ParadoxJsonConverter(JsonExportOptions options = null)
         {
             _options = options ?? JsonExportOptions.Pretty;
-            _jsonOptions = CreateJsonSerializerOptions();
+            _jsonOptions = CreateJsonSerializerSettings();
         }
 
-        private JsonSerializerOptions CreateJsonSerializerOptions()
+        private JsonSerializerSettings CreateJsonSerializerSettings()
         {
-            var options = new JsonSerializerOptions
+            var options = new JsonSerializerSettings
             {
                 WriteIndented = _options.IndentJson,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -133,7 +132,7 @@ namespace ParadoxDataLib.Json
             _options = options;
         }
 
-        public override ProvinceData Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override ProvinceData Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerSettings options)
         {
             if (reader.TokenType != JsonTokenType.StartObject)
                 throw new JsonException("Expected start of object");
@@ -201,7 +200,7 @@ namespace ParadoxDataLib.Json
             return province;
         }
 
-        public override void Write(Utf8JsonWriter writer, ProvinceData value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, ProvinceData value, JsonSerializerSettings options)
         {
             writer.WriteStartObject();
 
@@ -221,7 +220,7 @@ namespace ParadoxDataLib.Json
             writer.WriteEndObject();
         }
 
-        private void WritePropertyIfShould(Utf8JsonWriter writer, string propertyName, object value, JsonSerializerOptions options)
+        private void WritePropertyIfShould(Utf8JsonWriter writer, string propertyName, object value, JsonSerializerSettings options)
         {
             if (_options.ShouldIncludeProperty(propertyName, value))
             {
@@ -251,7 +250,7 @@ namespace ParadoxDataLib.Json
             _options = options;
         }
 
-        public override CountryData Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override CountryData Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerSettings options)
         {
             if (reader.TokenType != JsonTokenType.StartObject)
                 throw new JsonException("Expected start of object");
@@ -305,7 +304,7 @@ namespace ParadoxDataLib.Json
             return country;
         }
 
-        public override void Write(Utf8JsonWriter writer, CountryData value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, CountryData value, JsonSerializerSettings options)
         {
             writer.WriteStartObject();
 
@@ -321,7 +320,7 @@ namespace ParadoxDataLib.Json
             writer.WriteEndObject();
         }
 
-        private void WritePropertyIfShould(Utf8JsonWriter writer, string propertyName, object value, JsonSerializerOptions options)
+        private void WritePropertyIfShould(Utf8JsonWriter writer, string propertyName, object value, JsonSerializerSettings options)
         {
             if (_options.ShouldIncludeProperty(propertyName, value))
             {
@@ -351,7 +350,7 @@ namespace ParadoxDataLib.Json
             _options = options;
         }
 
-        public override HistoricalEntry Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override HistoricalEntry Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerSettings options)
         {
             if (reader.TokenType != JsonTokenType.StartObject)
                 throw new JsonException("Expected start of object");
@@ -392,7 +391,7 @@ namespace ParadoxDataLib.Json
             return entry;
         }
 
-        public override void Write(Utf8JsonWriter writer, HistoricalEntry value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, HistoricalEntry value, JsonSerializerSettings options)
         {
             writer.WriteStartObject();
 
@@ -428,7 +427,7 @@ namespace ParadoxDataLib.Json
             _options = options;
         }
 
-        public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerSettings options)
         {
             var dateString = reader.GetString();
             if (string.IsNullOrEmpty(dateString))
@@ -446,7 +445,7 @@ namespace ParadoxDataLib.Json
             return default;
         }
 
-        public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerSettings options)
         {
             string dateString = _options.DateFormat switch
             {

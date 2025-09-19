@@ -4,7 +4,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 using ParadoxDataLib.Core.DataModels;
 using ParadoxDataLib.Validation;
@@ -287,14 +288,14 @@ namespace ParadoxDataLib.Json
             try
             {
                 // Try to parse as structured data with metadata
-                var document = JsonDocument.Parse(json);
+                var document = JObject.Parse(json);
                 var root = document.RootElement;
 
                 if (root.TryGetProperty("metadata", out var metadataElement) &&
                     root.TryGetProperty("data", out var dataElement))
                 {
-                    var metadata = JsonSerializer.Deserialize<Dictionary<string, object>>(metadataElement.GetRawText());
-                    var data = _converter.Deserialize<IEnumerable<T>>(dataElement.GetRawText());
+                    var metadata = JsonConvert.DeserializeObject<Dictionary<string, object>>(metadataElement.ToString());
+                    var data = _converter.Deserialize<IEnumerable<T>>(dataElement.ToString());
 
                     return new JsonImportData<T>
                     {
@@ -304,9 +305,9 @@ namespace ParadoxDataLib.Json
                 }
 
                 // Try to parse as direct array/data
-                if (root.ValueKind == JsonValueKind.Array)
+                if (root.ValueKind == JTokenType.Array)
                 {
-                    var data = JsonSerializer.Deserialize<IEnumerable<T>>(json, _converter.JsonOptions);
+                    var data = JsonConvert.DeserializeObject<IEnumerable<T>>(json, _converter.JsonOptions);
                     return new JsonImportData<T>
                     {
                         Data = data ?? Enumerable.Empty<T>(),
@@ -317,12 +318,12 @@ namespace ParadoxDataLib.Json
                 // Try to find data in expected property
                 if (root.TryGetProperty(expectedDataType, out var expectedDataElement))
                 {
-                    var data = _converter.Deserialize<IEnumerable<T>>(expectedDataElement.GetRawText());
+                    var data = _converter.Deserialize<IEnumerable<T>>(expectedDataElement.ToString());
                     var metadata = new Dictionary<string, object>();
 
                     if (root.TryGetProperty("metadata", out var metadataElement2))
                     {
-                        metadata = JsonSerializer.Deserialize<Dictionary<string, object>>(metadataElement2.GetRawText()) ?? metadata;
+                        metadata = JsonConvert.DeserializeObject<Dictionary<string, object>>(metadataElement2.ToString()) ?? metadata;
                     }
 
                     return new JsonImportData<T>

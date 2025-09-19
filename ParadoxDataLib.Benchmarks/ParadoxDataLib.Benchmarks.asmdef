@@ -1,0 +1,30 @@
+{
+    "name": "ParadoxDataLib.Benchmarks",
+    "rootNamespace": "ParadoxDataLib.Benchmarks",
+    "references": [
+        "ParadoxDataLib"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [
+        "Editor",
+        "WindowsStandalone32",
+        "WindowsStandalone64",
+        "macOSStandalone",
+        "LinuxStandalone64",
+        "WebGL",
+        "WSA",
+        "PS4",
+        "PS5",
+        "XboxOne",
+        "tvOS",
+        "iOS",
+        "Android"
+    ],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
