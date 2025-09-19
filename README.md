@@ -6,6 +6,8 @@ A .NET Standard 2.1 library for parsing and working with Paradox Interactive gam
 
 ParadoxDataLib provides utilities for parsing data files from Paradox Interactive games like Europa Universalis IV, Crusader Kings, Hearts of Iron, and others. The library is designed for high performance and supports modern C# language features.
 
+Tested with EU IV files.
+
 ## Features
 
 - **High Performance**: Optimized parsing with unsafe code blocks for maximum speed
@@ -46,7 +48,6 @@ dotnet run --project ParadoxDataLib.Benchmarks
 - `ParadoxDataLib.Benchmarks/` - Performance benchmarks
 - `docs/` - Documentation
 - `examples/` - Usage examples
-- `EU IV Files/` - Sample game data files
 
 ## Documentation
 
@@ -57,11 +58,3 @@ dotnet run --project ParadoxDataLib.Benchmarks
 
 - System.Text.Json (8.0.4)
 - System.Threading.Channels (8.0.0)
-
-## License
-
-[License information to be added]
-
-## Contributing
-
-[Contributing guidelines to be added]
