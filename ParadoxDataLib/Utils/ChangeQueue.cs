@@ -98,7 +98,7 @@ namespace ParadoxDataLib.Utils
             }
 
             // Reset debounce timer
-            _debounceTimer.Change(_options.DebounceInterval, Timeout.InfiniteTimeSpan);
+            _debounceTimer.Change(TimeSpan.FromMilliseconds(_options.DebounceMilliseconds), Timeout.InfiniteTimeSpan);
         }
 
         private void OnDebounceTimerElapsed(object? state)
@@ -122,6 +122,14 @@ namespace ParadoxDataLib.Utils
 
         public int PendingChangesCount => _pendingChanges.Count;
         public int QueuedChangesCount => _queue.Count;
+
+        public void Complete()
+        {
+            if (_disposed)
+                return;
+
+            _cancellationTokenSource.Cancel();
+        }
 
         public void Dispose()
         {

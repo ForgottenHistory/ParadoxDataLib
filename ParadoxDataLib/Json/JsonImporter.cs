@@ -289,13 +289,14 @@ namespace ParadoxDataLib.Json
             {
                 // Try to parse as structured data with metadata
                 var document = JObject.Parse(json);
-                var root = document.RootElement;
 
-                if (root.TryGetProperty("metadata", out var metadataElement) &&
-                    root.TryGetProperty("data", out var dataElement))
+                if (document.ContainsKey("metadata") && document.ContainsKey("data"))
                 {
-                    var metadata = JsonConvert.DeserializeObject<Dictionary<string, object>>(metadataElement.ToString());
-                    var data = _converter.Deserialize<IEnumerable<T>>(dataElement.ToString());
+                    var metadataToken = document["metadata"];
+                    var dataToken = document["data"];
+
+                    var metadata = metadataToken?.ToObject<Dictionary<string, object>>();
+                    var data = dataToken?.ToObject<IEnumerable<T>>();
 
                     return new JsonImportData<T>
                     {
@@ -305,7 +306,7 @@ namespace ParadoxDataLib.Json
                 }
 
                 // Try to parse as direct array/data
-                if (root.ValueKind == JTokenType.Array)
+                if (document.Type == JTokenType.Array)
                 {
                     var data = JsonConvert.DeserializeObject<IEnumerable<T>>(json, _converter.JsonOptions);
                     return new JsonImportData<T>
@@ -316,14 +317,16 @@ namespace ParadoxDataLib.Json
                 }
 
                 // Try to find data in expected property
-                if (root.TryGetProperty(expectedDataType, out var expectedDataElement))
+                if (document.ContainsKey(expectedDataType))
                 {
-                    var data = _converter.Deserialize<IEnumerable<T>>(expectedDataElement.ToString());
+                    var expectedDataToken = document[expectedDataType];
+                    var data = expectedDataToken?.ToObject<IEnumerable<T>>();
                     var metadata = new Dictionary<string, object>();
 
-                    if (root.TryGetProperty("metadata", out var metadataElement2))
+                    if (document.ContainsKey("metadata"))
                     {
-                        metadata = JsonConvert.DeserializeObject<Dictionary<string, object>>(metadataElement2.ToString()) ?? metadata;
+                        var metadataToken = document["metadata"];
+                        metadata = metadataToken?.ToObject<Dictionary<string, object>>() ?? metadata;
                     }
 
                     return new JsonImportData<T>

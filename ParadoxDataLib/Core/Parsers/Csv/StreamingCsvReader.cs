@@ -248,8 +248,7 @@ namespace ParadoxDataLib.Core.Parsers.Csv
         {
             try
             {
-                // Register the encoding provider for .NET Core/.NET 5+
-                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                // Try to get Windows-1252 encoding directly (works in .NET Framework)
                 return Encoding.GetEncoding(1252);
             }
             catch

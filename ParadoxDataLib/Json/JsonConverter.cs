@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using ParadoxDataLib.Core.DataModels;
 
 namespace ParadoxDataLib.Json
@@ -24,11 +24,10 @@ namespace ParadoxDataLib.Json
         {
             var options = new JsonSerializerSettings
             {
-                WriteIndented = _options.IndentJson,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                DefaultIgnoreCondition = _options.IncludeNullValues ? JsonIgnoreCondition.Never : JsonIgnoreCondition.WhenWritingNull,
+                Formatting = _options.IndentJson ? Formatting.Indented : Formatting.None,
+                NullValueHandling = _options.IncludeNullValues ? NullValueHandling.Include : NullValueHandling.Ignore,
                 MaxDepth = _options.MaxDepth,
-                Encoder = _options.EscapeNonAscii ? System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping : System.Text.Encodings.Web.JavaScriptEncoder.Default
+                DateFormatHandling = DateFormatHandling.IsoDateFormat
             };
 
             options.Converters.Add(new ProvinceDataJsonConverter(_options));
@@ -38,7 +37,7 @@ namespace ParadoxDataLib.Json
 
             if (_options.UseStringEnums)
             {
-                options.Converters.Add(new JsonStringEnumConverter());
+                options.Converters.Add(new StringEnumConverter());
             }
 
             return options;
@@ -51,7 +50,7 @@ namespace ParadoxDataLib.Json
 
             try
             {
-                var json = JsonSerializer.Serialize(obj, _jsonOptions);
+                var json = JsonConvert.SerializeObject(obj, _jsonOptions);
 
                 if (_options.CompressOutput)
                 {
@@ -70,11 +69,11 @@ namespace ParadoxDataLib.Json
         public T Deserialize<T>(string json)
         {
             if (string.IsNullOrWhiteSpace(json))
-                return default(T);
+                return default;
 
             try
             {
-                return JsonSerializer.Deserialize<T>(json, _jsonOptions);
+                return JsonConvert.DeserializeObject<T>(json, _jsonOptions);
             }
             catch (Exception ex)
             {
@@ -132,67 +131,70 @@ namespace ParadoxDataLib.Json
             _options = options;
         }
 
-        public override ProvinceData Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerSettings options)
+        public override ProvinceData ReadJson(JsonReader reader, Type objectType, ProvinceData existingValue, bool hasExistingValue, JsonSerializer serializer)
         {
-            if (reader.TokenType != JsonTokenType.StartObject)
+            if (reader.TokenType == JsonToken.Null)
+                return default(ProvinceData);
+
+            if (reader.TokenType != JsonToken.StartObject)
                 throw new JsonException("Expected start of object");
 
             var province = new ProvinceData();
 
             while (reader.Read())
             {
-                if (reader.TokenType == JsonTokenType.EndObject)
+                if (reader.TokenType == JsonToken.EndObject)
                     break;
 
-                if (reader.TokenType != JsonTokenType.PropertyName)
+                if (reader.TokenType != JsonToken.PropertyName)
                     continue;
 
-                var propertyName = reader.GetString();
+                var propertyName = reader.Value?.ToString();
                 reader.Read();
 
                 switch (propertyName?.ToLowerInvariant())
                 {
                     case "provinceId":
                     case "provinceid":
-                        province.ProvinceId = reader.GetInt32();
+                        province.ProvinceId = Convert.ToInt32(reader.Value);
                         break;
                     case "owner":
-                        province.Owner = reader.GetString() ?? string.Empty;
+                        province.Owner = reader.Value?.ToString() ?? string.Empty;
                         break;
                     case "controller":
-                        province.Controller = reader.GetString() ?? string.Empty;
+                        province.Controller = reader.Value?.ToString() ?? string.Empty;
                         break;
                     case "culture":
-                        province.Culture = reader.GetString() ?? string.Empty;
+                        province.Culture = reader.Value?.ToString() ?? string.Empty;
                         break;
                     case "religion":
-                        province.Religion = reader.GetString() ?? string.Empty;
+                        province.Religion = reader.Value?.ToString() ?? string.Empty;
                         break;
                     case "tradegood":
                     case "tradeGood":
-                        province.TradeGood = reader.GetString() ?? string.Empty;
+                        province.TradeGood = reader.Value?.ToString() ?? string.Empty;
                         break;
                     case "basetax":
                     case "baseTax":
-                        province.BaseTax = reader.GetInt32();
+                        province.BaseTax = Convert.ToInt32(reader.Value);
                         break;
                     case "baseproduction":
                     case "baseProduction":
-                        province.BaseProduction = reader.GetInt32();
+                        province.BaseProduction = Convert.ToInt32(reader.Value);
                         break;
                     case "basemanpower":
                     case "baseManpower":
-                        province.BaseManpower = reader.GetInt32();
+                        province.BaseManpower = Convert.ToInt32(reader.Value);
                         break;
                     case "cores":
-                        province.Cores = JsonSerializer.Deserialize<List<string>>(ref reader, options) ?? new List<string>();
+                        province.Cores = serializer.Deserialize<List<string>>(reader) ?? new List<string>();
                         break;
                     case "buildings":
-                        province.Buildings = JsonSerializer.Deserialize<List<string>>(ref reader, options) ?? new List<string>();
+                        province.Buildings = serializer.Deserialize<List<string>>(reader) ?? new List<string>();
                         break;
                     case "historicalentries":
                     case "historicalEntries":
-                        province.HistoricalEntries = JsonSerializer.Deserialize<List<HistoricalEntry>>(ref reader, options) ?? new List<HistoricalEntry>();
+                        province.HistoricalEntries = serializer.Deserialize<List<HistoricalEntry>>(reader) ?? new List<HistoricalEntry>();
                         break;
                 }
             }
@@ -200,43 +202,32 @@ namespace ParadoxDataLib.Json
             return province;
         }
 
-        public override void Write(Utf8JsonWriter writer, ProvinceData value, JsonSerializerSettings options)
+        public override void WriteJson(JsonWriter writer, ProvinceData value, JsonSerializer serializer)
         {
             writer.WriteStartObject();
 
-            WritePropertyIfShould(writer, "provinceId", value.ProvinceId, options);
-            WritePropertyIfShould(writer, "owner", value.Owner, options);
-            WritePropertyIfShould(writer, "controller", value.Controller, options);
-            WritePropertyIfShould(writer, "culture", value.Culture, options);
-            WritePropertyIfShould(writer, "religion", value.Religion, options);
-            WritePropertyIfShould(writer, "tradeGood", value.TradeGood, options);
-            WritePropertyIfShould(writer, "baseTax", value.BaseTax, options);
-            WritePropertyIfShould(writer, "baseProduction", value.BaseProduction, options);
-            WritePropertyIfShould(writer, "baseManpower", value.BaseManpower, options);
-            WritePropertyIfShould(writer, "cores", value.Cores, options);
-            WritePropertyIfShould(writer, "buildings", value.Buildings, options);
-            WritePropertyIfShould(writer, "historicalEntries", value.HistoricalEntries, options);
+            WritePropertyIfShould(writer, serializer, "provinceId", value.ProvinceId);
+            WritePropertyIfShould(writer, serializer, "owner", value.Owner);
+            WritePropertyIfShould(writer, serializer, "controller", value.Controller);
+            WritePropertyIfShould(writer, serializer, "culture", value.Culture);
+            WritePropertyIfShould(writer, serializer, "religion", value.Religion);
+            WritePropertyIfShould(writer, serializer, "tradeGood", value.TradeGood);
+            WritePropertyIfShould(writer, serializer, "baseTax", value.BaseTax);
+            WritePropertyIfShould(writer, serializer, "baseProduction", value.BaseProduction);
+            WritePropertyIfShould(writer, serializer, "baseManpower", value.BaseManpower);
+            WritePropertyIfShould(writer, serializer, "cores", value.Cores);
+            WritePropertyIfShould(writer, serializer, "buildings", value.Buildings);
+            WritePropertyIfShould(writer, serializer, "historicalEntries", value.HistoricalEntries);
 
             writer.WriteEndObject();
         }
 
-        private void WritePropertyIfShould(Utf8JsonWriter writer, string propertyName, object value, JsonSerializerSettings options)
+        private void WritePropertyIfShould(JsonWriter writer, JsonSerializer serializer, string propertyName, object value)
         {
             if (_options.ShouldIncludeProperty(propertyName, value))
             {
-                if (value is string stringValue)
-                {
-                    writer.WriteString(propertyName, stringValue);
-                }
-                else if (value is int intValue)
-                {
-                    writer.WriteNumber(propertyName, intValue);
-                }
-                else if (value != null)
-                {
-                    writer.WritePropertyName(propertyName);
-                    JsonSerializer.Serialize(writer, value, options);
-                }
+                writer.WritePropertyName(propertyName);
+                serializer.Serialize(writer, value);
             }
         }
     }
@@ -250,53 +241,56 @@ namespace ParadoxDataLib.Json
             _options = options;
         }
 
-        public override CountryData Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerSettings options)
+        public override CountryData ReadJson(JsonReader reader, Type objectType, CountryData existingValue, bool hasExistingValue, JsonSerializer serializer)
         {
-            if (reader.TokenType != JsonTokenType.StartObject)
+            if (reader.TokenType == JsonToken.Null)
+                return default(CountryData);
+
+            if (reader.TokenType != JsonToken.StartObject)
                 throw new JsonException("Expected start of object");
 
             var country = new CountryData();
 
             while (reader.Read())
             {
-                if (reader.TokenType == JsonTokenType.EndObject)
+                if (reader.TokenType == JsonToken.EndObject)
                     break;
 
-                if (reader.TokenType != JsonTokenType.PropertyName)
+                if (reader.TokenType != JsonToken.PropertyName)
                     continue;
 
-                var propertyName = reader.GetString();
+                var propertyName = reader.Value?.ToString();
                 reader.Read();
 
                 switch (propertyName?.ToLowerInvariant())
                 {
                     case "tag":
-                        country.Tag = reader.GetString() ?? string.Empty;
+                        country.Tag = reader.Value?.ToString() ?? string.Empty;
                         break;
                     case "government":
-                        country.Government = reader.GetString() ?? string.Empty;
+                        country.Government = reader.Value?.ToString() ?? string.Empty;
                         break;
                     case "primaryculture":
                     case "primaryCulture":
-                        country.PrimaryCulture = reader.GetString() ?? string.Empty;
+                        country.PrimaryCulture = reader.Value?.ToString() ?? string.Empty;
                         break;
                     case "religion":
-                        country.Religion = reader.GetString() ?? string.Empty;
+                        country.Religion = reader.Value?.ToString() ?? string.Empty;
                         break;
                     case "technologygroup":
                     case "technologyGroup":
-                        country.TechnologyGroup = reader.GetString() ?? string.Empty;
+                        country.TechnologyGroup = reader.Value?.ToString() ?? string.Empty;
                         break;
                     case "capital":
-                        country.Capital = reader.GetInt32();
+                        country.Capital = Convert.ToInt32(reader.Value);
                         break;
                     case "acceptedcultures":
                     case "acceptedCultures":
-                        country.AcceptedCultures = JsonSerializer.Deserialize<List<string>>(ref reader, options) ?? new List<string>();
+                        country.AcceptedCultures = serializer.Deserialize<List<string>>(reader) ?? new List<string>();
                         break;
                     case "historicalentries":
                     case "historicalEntries":
-                        country.HistoricalEntries = JsonSerializer.Deserialize<List<HistoricalEntry>>(ref reader, options) ?? new List<HistoricalEntry>();
+                        country.HistoricalEntries = serializer.Deserialize<List<HistoricalEntry>>(reader) ?? new List<HistoricalEntry>();
                         break;
                 }
             }
@@ -304,39 +298,28 @@ namespace ParadoxDataLib.Json
             return country;
         }
 
-        public override void Write(Utf8JsonWriter writer, CountryData value, JsonSerializerSettings options)
+        public override void WriteJson(JsonWriter writer, CountryData value, JsonSerializer serializer)
         {
             writer.WriteStartObject();
 
-            WritePropertyIfShould(writer, "tag", value.Tag, options);
-            WritePropertyIfShould(writer, "government", value.Government, options);
-            WritePropertyIfShould(writer, "primaryCulture", value.PrimaryCulture, options);
-            WritePropertyIfShould(writer, "religion", value.Religion, options);
-            WritePropertyIfShould(writer, "technologyGroup", value.TechnologyGroup, options);
-            WritePropertyIfShould(writer, "capital", value.Capital, options);
-            WritePropertyIfShould(writer, "acceptedCultures", value.AcceptedCultures, options);
-            WritePropertyIfShould(writer, "historicalEntries", value.HistoricalEntries, options);
+            WritePropertyIfShould(writer, serializer, "tag", value.Tag);
+            WritePropertyIfShould(writer, serializer, "government", value.Government);
+            WritePropertyIfShould(writer, serializer, "primaryCulture", value.PrimaryCulture);
+            WritePropertyIfShould(writer, serializer, "religion", value.Religion);
+            WritePropertyIfShould(writer, serializer, "technologyGroup", value.TechnologyGroup);
+            WritePropertyIfShould(writer, serializer, "capital", value.Capital);
+            WritePropertyIfShould(writer, serializer, "acceptedCultures", value.AcceptedCultures);
+            WritePropertyIfShould(writer, serializer, "historicalEntries", value.HistoricalEntries);
 
             writer.WriteEndObject();
         }
 
-        private void WritePropertyIfShould(Utf8JsonWriter writer, string propertyName, object value, JsonSerializerSettings options)
+        private void WritePropertyIfShould(JsonWriter writer, JsonSerializer serializer, string propertyName, object value)
         {
             if (_options.ShouldIncludeProperty(propertyName, value))
             {
-                if (value is string stringValue)
-                {
-                    writer.WriteString(propertyName, stringValue);
-                }
-                else if (value is int intValue)
-                {
-                    writer.WriteNumber(propertyName, intValue);
-                }
-                else if (value != null)
-                {
-                    writer.WritePropertyName(propertyName);
-                    JsonSerializer.Serialize(writer, value, options);
-                }
+                writer.WritePropertyName(propertyName);
+                serializer.Serialize(writer, value);
             }
         }
     }
@@ -350,22 +333,25 @@ namespace ParadoxDataLib.Json
             _options = options;
         }
 
-        public override HistoricalEntry Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerSettings options)
+        public override HistoricalEntry ReadJson(JsonReader reader, Type objectType, HistoricalEntry existingValue, bool hasExistingValue, JsonSerializer serializer)
         {
-            if (reader.TokenType != JsonTokenType.StartObject)
+            if (reader.TokenType == JsonToken.Null)
+                return default(HistoricalEntry);
+
+            if (reader.TokenType != JsonToken.StartObject)
                 throw new JsonException("Expected start of object");
 
             var entry = new HistoricalEntry();
 
             while (reader.Read())
             {
-                if (reader.TokenType == JsonTokenType.EndObject)
+                if (reader.TokenType == JsonToken.EndObject)
                     break;
 
-                if (reader.TokenType != JsonTokenType.PropertyName)
+                if (reader.TokenType != JsonToken.PropertyName)
                     continue;
 
-                var propertyName = reader.GetString();
+                var propertyName = reader.Value?.ToString();
                 reader.Read();
 
                 switch (propertyName?.ToLowerInvariant())
@@ -373,17 +359,17 @@ namespace ParadoxDataLib.Json
                     case "date":
                         if (_options.DateFormat == DateTimeFormat.ParadoxDate)
                         {
-                            var dateStr = reader.GetString();
+                            var dateStr = reader.Value?.ToString();
                             if (DateTime.TryParseExact(dateStr, "yyyy.M.d", null, System.Globalization.DateTimeStyles.None, out var paradoxDate))
                                 entry.Date = paradoxDate;
                         }
                         else
                         {
-                            entry.Date = JsonSerializer.Deserialize<DateTime>(ref reader, options);
+                            entry.Date = serializer.Deserialize<DateTime>(reader);
                         }
                         break;
                     case "changes":
-                        entry.Changes = JsonSerializer.Deserialize<Dictionary<string, object>>(ref reader, options) ?? new Dictionary<string, object>();
+                        entry.Changes = serializer.Deserialize<Dictionary<string, object>>(reader) ?? new Dictionary<string, object>();
                         break;
                 }
             }
@@ -391,27 +377,27 @@ namespace ParadoxDataLib.Json
             return entry;
         }
 
-        public override void Write(Utf8JsonWriter writer, HistoricalEntry value, JsonSerializerSettings options)
+        public override void WriteJson(JsonWriter writer, HistoricalEntry value, JsonSerializer serializer)
         {
             writer.WriteStartObject();
 
             if (_options.ShouldIncludeProperty("date", value.Date))
             {
+                writer.WritePropertyName("date");
                 if (_options.DateFormat == DateTimeFormat.ParadoxDate)
                 {
-                    writer.WriteString("date", value.Date.ToString("yyyy.M.d"));
+                    writer.WriteValue(value.Date.ToString("yyyy.M.d"));
                 }
                 else
                 {
-                    writer.WritePropertyName("date");
-                    JsonSerializer.Serialize(writer, value.Date, options);
+                    serializer.Serialize(writer, value.Date);
                 }
             }
 
             if (_options.ShouldIncludeProperty("changes", value.Changes))
             {
                 writer.WritePropertyName("changes");
-                JsonSerializer.Serialize(writer, value.Changes, options);
+                serializer.Serialize(writer, value.Changes);
             }
 
             writer.WriteEndObject();
@@ -427,9 +413,9 @@ namespace ParadoxDataLib.Json
             _options = options;
         }
 
-        public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerSettings options)
+        public override DateTime ReadJson(JsonReader reader, Type objectType, DateTime existingValue, bool hasExistingValue, JsonSerializer serializer)
         {
-            var dateString = reader.GetString();
+            var dateString = reader.Value?.ToString();
             if (string.IsNullOrEmpty(dateString))
                 return default;
 
@@ -445,7 +431,7 @@ namespace ParadoxDataLib.Json
             return default;
         }
 
-        public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerSettings options)
+        public override void WriteJson(JsonWriter writer, DateTime value, JsonSerializer serializer)
         {
             string dateString = _options.DateFormat switch
             {
@@ -455,7 +441,7 @@ namespace ParadoxDataLib.Json
                 _ => value.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
             };
 
-            writer.WriteStringValue(dateString);
+            writer.WriteValue(dateString);
         }
     }
 

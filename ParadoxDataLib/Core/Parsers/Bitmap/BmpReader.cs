@@ -298,12 +298,10 @@ namespace ParadoxDataLib.Core.Parsers.Bitmap
             var startOffset = _header.PixelDataOffset + (startY * stride) + (x * bytesPerPixel);
             var regionSize = height * stride;
 
-            // Create a span over the memory-mapped region
-            unsafe
-            {
-                var ptr = (byte*)_accessor.SafeMemoryMappedViewHandle.DangerousGetHandle().ToPointer();
-                return new ReadOnlySpan<byte>(ptr + startOffset, regionSize);
-            }
+            // Read the region data safely using ReadArray
+            var buffer = new byte[regionSize];
+            _accessor.ReadArray(startOffset, buffer, 0, regionSize);
+            return new ReadOnlySpan<byte>(buffer);
         }
 
         /// <summary>

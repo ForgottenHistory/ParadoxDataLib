@@ -37,13 +37,13 @@ namespace ParadoxDataLib.Json
         public string GenerateSchemaJson<T>()
         {
             var schema = GenerateSchema<T>();
-            return JsonSerializer.Serialize(schema, new JsonSerializerOptions { WriteIndented = true });
+            return JsonConvert.SerializeObject(schema, Formatting.Indented);
         }
 
         public string GenerateSchemaJson(Type type)
         {
             var schema = GenerateSchema(type);
-            return JsonSerializer.Serialize(schema, new JsonSerializerOptions { WriteIndented = true });
+            return JsonConvert.SerializeObject(schema, Formatting.Indented);
         }
 
         public JsonSchemaDefinition GenerateProvinceSchema()
@@ -399,9 +399,9 @@ namespace ParadoxDataLib.Json
 
             try
             {
-                // Basic JSON validation
-                var jsonDocument = JsonDocument.Parse(json);
-                var schemaDocument = JsonDocument.Parse(schema);
+                // Basic JSON validation using Newtonsoft.Json
+                var jsonObject = JsonConvert.DeserializeObject(json);
+                var schemaObject = JsonConvert.DeserializeObject(schema);
 
                 result.IsValid = true;
                 result.ValidationErrors = new List<string>();
